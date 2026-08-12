@@ -443,10 +443,7 @@ Real agentic systems fail silently — the LLM produces plausible-sounding but w
 
 **Kittu** — B.Tech CSE, CSPIT CHARUSAT
 
-Portfolio projects:
-- **MediScan** — Medical document OCR + NLP classification
-- **MarketPulse** — FinBERT sentiment + LSTM price forecasting + FastAPI
-- **AgentForge** — Multi-agent AI system (this project)
+
 
 ---
 
