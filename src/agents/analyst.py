@@ -57,15 +57,16 @@ class AnalystAgent(BaseAgent):
         self._current_task_id = None
         self.tools = {
             "execute_code": Tool(
-                name="execute_code",
-                description=(
-                    "Run Python for data analysis. "
-                    "Use pandas, numpy, scipy for statistics. "
-                    "Always print() your results."
-                ),
-                func=execute_code,
-                example='ACTION_INPUT: {"code": "import numpy as np\\nprint(np.mean([1,2,3]))"}',
-            ),
+    name="execute_code",
+    description=(
+        "Run Python for data analysis. "
+        "REQUIRED: pass code as a string with key 'code'. "
+        "Use pandas, numpy, scipy. Always print() results. "
+        'Example ACTION_INPUT: {"code": "import pandas as pd\\nprint(pd.__version__)"}'
+    ),
+    func=execute_code,
+    example='ACTION_INPUT: {"code": "import numpy as np\\nprint(np.mean([1,2,3]))"}',
+),
             "generate_chart": Tool(
                 name="generate_chart",
                 description=(

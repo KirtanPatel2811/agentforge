@@ -45,15 +45,17 @@ class CoderAgent(BaseAgent):
     def __init__(self):
         self.tools = {
             "execute_code": Tool(
-                name="execute_code",
-                description=(
-                    "Execute Python code in a safe sandbox. "
-                    "Returns JSON with success, stdout, stderr, error. "
-                    "Available: pandas, numpy, scipy, plotly, math, statistics."
-                ),
-                func=execute_code,
-                example='ACTION_INPUT: {"code": "import pandas as pd\nprint(pd.__version__)"}',
-            ),
+    name="execute_code",
+    description=(
+        "Execute Python code in a safe sandbox. "
+        "REQUIRED: pass your code as a string with key 'code'. "
+        "Returns JSON with success, stdout, stderr, error. "
+        "Available: pandas, numpy, scipy, plotly, math, statistics. "
+        'Example ACTION_INPUT: {"code": "print(\'hello\')"}'
+    ),
+    func=execute_code,
+    example='ACTION_INPUT: {"code": "import pandas as pd\\nprint(pd.__version__)"}',
+),
             "read_url": Tool(
                 name="read_url",
                 description="Read documentation if you need to look something up.",
