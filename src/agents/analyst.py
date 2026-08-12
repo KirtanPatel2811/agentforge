@@ -1,27 +1,20 @@
-import os
-import sys
-
-sys.path.insert(
-    0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-)
-
+import sys, os, json
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 from src.core.base_agent import BaseAgent, Tool
 from src.core.memory import ChunkType
-from src.tools.chart_generator import generate_chart
 from src.tools.code_executor import execute_code
+from src.tools.chart_generator import generate_chart, get_charts_for_task
+from loguru import logger
 
 
 class AnalystAgent(BaseAgent):
     """
     Analyst agent — interprets data, generates statistics, creates charts.
 
-    Interview talking point:
-        The Analyst is the bridge between raw data and human-readable insights.
-        It uses execute_code for statistical analysis and generate_chart for
-        visualisations. It pulls context from ChromaDB to build on the
-        Researcher findings rather than re-discovering data. This shared
-        memory pattern is what makes agents genuinely collaborative.
+    Improvement: execute_code tool description now explicitly states
+    that ACTION_INPUT must contain a 'code' key as a string, preventing
+    the LLM from sending empty {} inputs.
     """
 
     agent_name = "analyst"
@@ -35,7 +28,9 @@ class AnalystAgent(BaseAgent):
         "3. Create at least one chart using generate_chart\n"
         "4. Write a data-driven narrative explaining what the numbers mean\n\n"
         "Available packages for code: pandas, numpy, scipy, statistics, json, math\n\n"
-        "Chart types: bar, line, scatter, pie, histogram, heatmap\n\n"
+        "Chart types available: bar, line, scatter, pie, histogram, heatmap\n\n"
+        "CRITICAL: When using execute_code, ACTION_INPUT must ALWAYS contain the key 'code'\n"
+        'Example: ACTION_INPUT: {"code": "import pandas as pd\nprint(42)"}\n\n'
         "FINAL_ANSWER format:\n"
         "DATA ANALYSIS SUMMARY\n"
         "=====================\n"
@@ -49,7 +44,7 @@ class AnalystAgent(BaseAgent):
         "[2-3 paragraph narrative]\n\n"
         "Standards:\n"
         "- Always include specific numbers\n"
-        "- Explain what numbers MEAN\n"
+        "- Explain what numbers MEAN not just what they are\n"
         "- Reference charts by title in narrative"
     )
 
@@ -57,52 +52,40 @@ class AnalystAgent(BaseAgent):
         self._current_task_id = None
         self.tools = {
             "execute_code": Tool(
-    name="execute_code",
-    description=(
-        "Run Python for data analysis. "
-        "REQUIRED: pass code as a string with key 'code'. "
-        "Use pandas, numpy, scipy. Always print() results. "
-        'Example ACTION_INPUT: {"code": "import pandas as pd\\nprint(pd.__version__)"}'
-    ),
-    func=execute_code,
-    example='ACTION_INPUT: {"code": "import numpy as np\\nprint(np.mean([1,2,3]))"}',
-),
+                name="execute_code",
+                description=(
+                    "Run Python for data analysis. "
+                    "REQUIRED: ACTION_INPUT must have key 'code' as a string. "
+                    "Use pandas, numpy, scipy for statistics. "
+                    "Always print() your results so they appear in output. "
+                    "Available: pandas, numpy, scipy, math, statistics, json."
+                ),
+                func=execute_code,
+                example='ACTION_INPUT: {"code": "import numpy as np\ndata=[430,140,80]\nprint(f'mean={np.mean(data):.1f}')"}',
+            ),
             "generate_chart": Tool(
                 name="generate_chart",
                 description=(
                     "Create a Plotly chart saved as HTML. "
-                    "chart_type: bar, line, scatter, pie, histogram, heatmap. "
-                    "data: JSON string of list-of-dicts."
+                    "REQUIRED fields: data (JSON string), chart_type, x_column, y_column, title. "
+                    "chart_type options: bar, line, scatter, pie, histogram, heatmap. "
+                    "data format: JSON string of list-of-dicts like "
+                    '[{"country":"China","gw":430},{"country":"USA","gw":140}]'
                 ),
                 func=self._chart_wrapper,
-                example='ACTION_INPUT: {"data": "[{"country":"China","gw":430}]", "chart_type": "bar", "x_column": "country", "y_column": "gw", "title": "Solar Capacity"}',
+                example='ACTION_INPUT: {"data": "[{\"country\":\"China\",\"gw\":430}]", "chart_type": "bar", "x_column": "country", "y_column": "gw", "title": "Solar Capacity by Country"}',
             ),
         }
         super().__init__()
 
-    def _chart_wrapper(
-        self,
-        data,
-        chart_type,
-        x_column,
-        y_column,
-        title,
-        x_label=None,
-        y_label=None,
-        color_column=None,
-        description=None,
-    ):
+    def _chart_wrapper(self, data, chart_type, x_column, y_column, title,
+                       x_label=None, y_label=None, color_column=None, description=None):
         return generate_chart(
-            data=data,
-            chart_type=chart_type,
-            x_column=x_column,
-            y_column=y_column,
-            title=title,
-            task_id=self._current_task_id or "unknown",
-            x_label=x_label,
-            y_label=y_label,
-            color_column=color_column,
-            description=description,
+            data=data, chart_type=chart_type,
+            x_column=x_column, y_column=y_column,
+            title=title, task_id=self._current_task_id or "unknown",
+            x_label=x_label, y_label=y_label,
+            color_column=color_column, description=description,
         )
 
     def run(self, subtask):

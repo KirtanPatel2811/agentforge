@@ -1,22 +1,17 @@
-"""
-src/core/memory.py — Shared Vector Memory Store
-All agents read/write to ChromaDB through this module.
-
-Design decisions:
-1. VECTOR MEMORY: Semantic search lets Writer find relevant chunks
-   from any agent without knowing exact keys — like production RAG.
-2. NAMESPACING: Every chunk tagged with agent_name, task_id, chunk_type.
-3. LOCAL EMBEDDINGS: ChromaDB uses all-MiniLM-L6-v2 (~80MB, free, offline).
-4. PERSISTENT: Survives restarts. Call clear_task() after each run.
-"""
-
 import uuid
+import logging
 from datetime import datetime
 from typing import Optional
 import chromadb
 from chromadb.config import Settings as ChromaSettings
 from loguru import logger
+
+import sys, os
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 from config import settings, CHROMA_DIR
+
+# Suppress ChromaDB's noisy telemetry warnings
+logging.getLogger("chromadb.telemetry.product.posthog").setLevel(logging.CRITICAL)
 
 
 class ChunkType:
@@ -33,6 +28,8 @@ class AgentMemory:
     """
     Shared vector memory backed by ChromaDB.
     All agents use the same instance via get_memory() singleton.
+
+    Improvement: ChromaDB telemetry warnings suppressed via logging config.
     """
 
     def __init__(self):
@@ -180,23 +177,3 @@ def get_memory() -> AgentMemory:
     if _memory_instance is None:
         _memory_instance = AgentMemory()
     return _memory_instance
-
-
-if __name__ == "__main__":
-    from rich import print as rprint
-    rprint("[bold cyan]Testing Agent Memory...[/bold cyan]")
-    mem = get_memory()
-    test_task = "test_task_001"
-    id1 = mem.store("Solar energy capacity reached 1.6 TW in 2023.",
-                    "researcher", test_task, ChunkType.RESEARCH)
-    id2 = mem.store("China leads with 430 GW installed capacity.",
-                    "researcher", test_task, ChunkType.RESEARCH)
-    id3 = mem.store("import plotly.express as px; fig = px.bar(...)",
-                    "coder", test_task, ChunkType.CODE)
-    rprint(f"Stored 3 chunks: {id1}, {id2}, {id3}")
-    results = mem.retrieve("solar energy statistics", task_id=test_task, k=3)
-    for r in results:
-        rprint(f"  [{r['metadata']['agent_name']}] {r['content'][:80]}")
-    deleted = mem.clear_task(test_task)
-    rprint(f"Cleaned up {deleted} test chunks")
-    rprint("[bold green]✓ Memory test passed![/bold green]")

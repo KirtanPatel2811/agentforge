@@ -12,11 +12,8 @@ class CoderAgent(BaseAgent):
     """
     Coder agent — writes, executes, and debugs Python code.
 
-    Interview talking point:
-        The Coder has an error recovery loop built into its ReAct cycle.
-        When code fails, the error becomes an OBSERVATION the agent reasons
-        about. It then rewrites and retries — exactly like a human developer
-        debugging. The sandbox timeout prevents infinite loops.
+    Improvement: execute_code tool description now explicitly requires
+    the 'code' key in ACTION_INPUT to prevent empty {} submissions.
     """
 
     agent_name = "coder"
@@ -27,9 +24,11 @@ class CoderAgent(BaseAgent):
         "Available packages: pandas, numpy, scipy, plotly, math, statistics, json, re, datetime, collections\n\n"
         "CRITICAL RULES:\n"
         "1. ALWAYS execute your code with execute_code before giving FINAL_ANSWER\n"
-        "2. If code fails, READ the error, fix it, and execute again\n"
-        "3. Never return code you have not successfully run\n"
-        "4. Maximum 3 attempts to fix errors\n\n"
+        "2. ACTION_INPUT for execute_code must ALWAYS have key 'code' as a Python string\n"
+        '   Example: ACTION_INPUT: {"code": "import pandas as pd\nprint('hello')"}\n'
+        "3. If code fails, READ the error, fix it, and execute again\n"
+        "4. Never return code you have not successfully run\n"
+        "5. Maximum 3 attempts to fix errors\n\n"
         "FINAL_ANSWER format:\n"
         "CODE:\n[the final working code]\n\n"
         "OUTPUT:\n[what the code printed]\n\n"
@@ -38,27 +37,25 @@ class CoderAgent(BaseAgent):
         "- Use descriptive variable names\n"
         "- Add print() for every key result\n"
         "- Handle edge cases\n"
-        "- Save files to current directory\n"
-        "- For charts: fig.write_html('chart_name.html')"
+        "- For Plotly charts: fig.write_html('chart_name.html')"
     )
 
     def __init__(self):
         self.tools = {
             "execute_code": Tool(
-    name="execute_code",
-    description=(
-        "Execute Python code in a safe sandbox. "
-        "REQUIRED: pass your code as a string with key 'code'. "
-        "Returns JSON with success, stdout, stderr, error. "
-        "Available: pandas, numpy, scipy, plotly, math, statistics. "
-        'Example ACTION_INPUT: {"code": "print(\'hello\')"}'
-    ),
-    func=execute_code,
-    example='ACTION_INPUT: {"code": "import pandas as pd\\nprint(pd.__version__)"}',
-),
+                name="execute_code",
+                description=(
+                    "Execute Python code in a safe sandbox. "
+                    "REQUIRED: ACTION_INPUT must have key 'code' containing your Python code as a string. "
+                    "Returns JSON: {success, stdout, stderr, error, execution_time}. "
+                    "Available packages: pandas, numpy, scipy, plotly, math, statistics, json, re."
+                ),
+                func=execute_code,
+                example='ACTION_INPUT: {"code": "import pandas as pd\ndf = pd.DataFrame({'a':[1,2,3]})\nprint(df.sum())"}',
+            ),
             "read_url": Tool(
                 name="read_url",
-                description="Read documentation if you need to look something up.",
+                description="Read a documentation page if you need to look something up.",
                 func=read_url,
                 example='ACTION_INPUT: {"url": "https://pandas.pydata.org/docs/"}',
             ),
